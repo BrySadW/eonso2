@@ -1,5 +1,5 @@
--- EonUI Library v2.0 (Fixed Version)
--- Accurate recreation of the eon cheat menu
+-- EonUI Library v3.0 (Fully Fixed Version)
+-- Accurate recreation with proper alignment and all tabs functional
 
 local EonUI = {}
 EonUI.__index = EonUI
@@ -12,27 +12,25 @@ local Players = game:GetService("Players")
 
 -- Theme Configuration
 local Theme = {
-    Background = Color3.fromRGB(13, 13, 13),
-    TabBackground = Color3.fromRGB(20, 20, 20),
-    TabActive = Color3.fromRGB(28, 28, 28),
-    Border = Color3.fromRGB(40, 40, 40),
+    Background = Color3.fromRGB(26, 26, 26),  -- Solid dark background
+    TabBackground = Color3.fromRGB(32, 32, 32),
+    TabActive = Color3.fromRGB(45, 45, 45),
+    TabInactive = Color3.fromRGB(32, 32, 32),
+    Border = Color3.fromRGB(60, 60, 60),
     TextPrimary = Color3.fromRGB(255, 255, 255),
     TextSecondary = Color3.fromRGB(200, 200, 200),
     TextDisabled = Color3.fromRGB(90, 90, 90),
     CheckboxBorder = Color3.fromRGB(192, 192, 192),
-    CheckboxChecked = Color3.fromRGB(255, 255, 255)
+    CheckboxBackground = Color3.fromRGB(26, 26, 26),
+    ColorBarSize = Vector2.new(40, 14)  -- Standardized size for color bars
 }
 
--- Default ESP Colors
-local DefaultColors = {
-    box = Color3.fromRGB(255, 255, 255),
-    health = Color3.fromRGB(0, 255, 0),
-    nick = Color3.fromRGB(255, 255, 255),
-    weapon = Color3.fromRGB(255, 255, 255),
-    ["text,icon"] = Color3.fromRGB(255, 255, 255),
-    ammo = Color3.fromRGB(0, 150, 255),
-    teammates = Color3.fromRGB(255, 255, 0),
-    enabled = Color3.fromRGB(255, 255, 255)
+-- ESP Default Colors (only for specific options)
+local ESPColors = {
+    box = Color3.fromRGB(255, 255, 255),      -- White
+    health = Color3.fromRGB(0, 255, 0),       -- Green
+    ammo = Color3.fromRGB(0, 150, 255)        -- Blue
+    -- No colors for other options
 }
 
 -- Utility Functions
@@ -111,6 +109,7 @@ function EonUI.new()
     
     self.Tabs = {}
     self.ActiveTab = nil
+    self.TabContents = {}
     self.Options = {}
     
     -- Create ScreenGui
@@ -119,30 +118,36 @@ function EonUI.new()
     self.ScreenGui.ResetOnSpawn = false
     self.ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
-    -- Main Frame
+    -- Main Frame (Larger size)
     self.MainFrame = Instance.new("Frame")
     self.MainFrame.Name = "MainFrame"
-    self.MainFrame.Size = UDim2.new(0, 400, 0, 300)
-    self.MainFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
+    self.MainFrame.Size = UDim2.new(0, 500, 0, 400)  -- Bigger UI
+    self.MainFrame.Position = UDim2.new(0.5, -250, 0.5, -200)
     self.MainFrame.BackgroundColor3 = Theme.Background
     self.MainFrame.BorderSizePixel = 0
     self.MainFrame.Parent = self.ScreenGui
     
+    -- Add border
+    local MainBorder = Instance.new("UIStroke")
+    MainBorder.Color = Theme.Border
+    MainBorder.Thickness = 1
+    MainBorder.Parent = self.MainFrame
+    
     -- Title Bar
     self.TitleBar = Instance.new("Frame")
-    self.TitleBar.Size = UDim2.new(1, 0, 0, 25)
+    self.TitleBar.Size = UDim2.new(1, 0, 0, 30)
     self.TitleBar.BackgroundColor3 = Theme.Background
     self.TitleBar.BorderSizePixel = 0
     self.TitleBar.Parent = self.MainFrame
     
-    -- Title Text
+    -- Title Text (Editable)
     self.TitleText = Instance.new("TextBox")
     self.TitleText.Text = "eon"
     self.TitleText.Font = Enum.Font.SourceSans
     self.TitleText.TextColor3 = Theme.TextPrimary
-    self.TitleText.TextSize = 14
+    self.TitleText.TextSize = 13  -- Proper size
     self.TitleText.BackgroundTransparency = 1
-    self.TitleText.Position = UDim2.new(0, 10, 0, 0)
+    self.TitleText.Position = UDim2.new(0, 12, 0, 0)
     self.TitleText.Size = UDim2.new(0, 100, 1, 0)
     self.TitleText.TextXAlignment = Enum.TextXAlignment.Left
     self.TitleText.ClearTextOnFocus = false
@@ -150,22 +155,22 @@ function EonUI.new()
     
     -- Tab Container
     self.TabContainer = Instance.new("Frame")
-    self.TabContainer.Size = UDim2.new(1, 0, 0, 30)
-    self.TabContainer.Position = UDim2.new(0, 0, 0, 25)
+    self.TabContainer.Size = UDim2.new(1, 0, 0, 35)
+    self.TabContainer.Position = UDim2.new(0, 0, 0, 30)
     self.TabContainer.BackgroundColor3 = Theme.TabBackground
     self.TabContainer.BorderSizePixel = 0
     self.TabContainer.Parent = self.MainFrame
     
     -- Content Container
     self.ContentContainer = Instance.new("Frame")
-    self.ContentContainer.Size = UDim2.new(1, 0, 1, -55)
-    self.ContentContainer.Position = UDim2.new(0, 0, 0, 55)
+    self.ContentContainer.Size = UDim2.new(1, 0, 1, -65)
+    self.ContentContainer.Position = UDim2.new(0, 0, 0, 65)
     self.ContentContainer.BackgroundColor3 = Theme.Background
     self.ContentContainer.BorderSizePixel = 0
     self.ContentContainer.Parent = self.MainFrame
     
-    -- Create tabs
-    self:CreateTabs()
+    -- Create all tabs
+    self:CreateAllTabs()
     
     -- Make draggable
     self:MakeDraggable()
@@ -173,18 +178,20 @@ function EonUI.new()
     return self
 end
 
--- Create Tabs
-function EonUI:CreateTabs()
+-- Create All Tabs
+function EonUI:CreateAllTabs()
     local tabNames = {"ragebot", "esp", "visuals", "misc", "exploits", "config"}
-    local tabWidth = 60
+    local tabWidth = 75  -- Even spacing
+    local tabSpacing = 5
     
     for i, tabName in ipairs(tabNames) do
         local tab = {}
         
+        -- Tab Button
         tab.Button = Instance.new("TextButton")
-        tab.Button.Size = UDim2.new(0, tabWidth, 1, 0)
-        tab.Button.Position = UDim2.new(0, (i-1) * tabWidth, 0, 0)
-        tab.Button.BackgroundColor3 = Theme.TabBackground
+        tab.Button.Size = UDim2.new(0, tabWidth, 0, 30)
+        tab.Button.Position = UDim2.new(0, 10 + (i-1) * (tabWidth + tabSpacing), 0, 2)
+        tab.Button.BackgroundColor3 = Theme.TabInactive
         tab.Button.BorderSizePixel = 0
         tab.Button.Font = Enum.Font.SourceSans
         tab.Button.Text = tabName
@@ -192,46 +199,74 @@ function EonUI:CreateTabs()
         tab.Button.TextSize = 13
         tab.Button.Parent = self.TabContainer
         
-        tab.Content = Instance.new("Frame")
-        tab.Content.Size = UDim2.new(1, 0, 1, 0)
+        -- Tab Content Frame
+        tab.Content = Instance.new("ScrollingFrame")
+        tab.Content.Size = UDim2.new(1, -10, 1, -10)
+        tab.Content.Position = UDim2.new(0, 5, 0, 5)
         tab.Content.BackgroundTransparency = 1
+        tab.Content.BorderSizePixel = 0
+        tab.Content.ScrollBarThickness = 4
+        tab.Content.ScrollBarImageColor3 = Theme.Border
+        tab.Content.CanvasSize = UDim2.new(0, 0, 0, 500)
         tab.Content.Visible = false
         tab.Content.Parent = self.ContentContainer
         
-        tab.Button.MouseButton1Click:Connect(function()
-            self:SelectTab(tab)
-        end)
-        
+        -- Store tab
         self.Tabs[tabName] = tab
         
-        -- Select ESP tab by default
-        if tabName == "esp" then
-            self:SelectTab(tab)
-            self:CreateESPContent(tab.Content)
-        end
+        -- Tab click event
+        tab.Button.MouseButton1Click:Connect(function()
+            self:SelectTab(tabName)
+        end)
+        
+        -- Create content for each tab
+        self:CreateTabContent(tabName, tab.Content)
     end
+    
+    -- Select ESP tab by default
+    self:SelectTab("esp")
 end
 
 -- Select Tab
-function EonUI:SelectTab(tab)
+function EonUI:SelectTab(tabName)
     -- Deselect all tabs
-    for _, t in pairs(self.Tabs) do
-        t.Button.BackgroundColor3 = Theme.TabBackground
-        t.Button.TextColor3 = Theme.TextSecondary
-        t.Content.Visible = false
+    for name, tab in pairs(self.Tabs) do
+        tab.Button.BackgroundColor3 = Theme.TabInactive
+        tab.Button.TextColor3 = Theme.TextSecondary
+        tab.Content.Visible = false
     end
     
-    -- Select this tab
-    tab.Button.BackgroundColor3 = Theme.TabActive
-    tab.Button.TextColor3 = Theme.TextPrimary
-    tab.Content.Visible = true
-    self.ActiveTab = tab
+    -- Select the specified tab
+    local tab = self.Tabs[tabName]
+    if tab then
+        tab.Button.BackgroundColor3 = Theme.TabActive
+        tab.Button.TextColor3 = Theme.TextPrimary
+        tab.Content.Visible = true
+        self.ActiveTab = tabName
+    end
 end
 
--- Create ESP Content
+-- Create Tab Content
+function EonUI:CreateTabContent(tabName, parent)
+    if tabName == "esp" then
+        self:CreateESPContent(parent)
+    elseif tabName == "ragebot" then
+        self:CreateRagebotContent(parent)
+    elseif tabName == "visuals" then
+        self:CreateVisualsContent(parent)
+    elseif tabName == "misc" then
+        self:CreateMiscContent(parent)
+    elseif tabName == "exploits" then
+        self:CreateExploitsContent(parent)
+    elseif tabName == "config" then
+        self:CreateConfigContent(parent)
+    end
+end
+
+-- Create ESP Content (Fixed)
 function EonUI:CreateESPContent(parent)
     local options = {
-        "enabled",
+        "enabled",    -- Now with checkbox
         "teammates", 
         "box",
         "health",
@@ -241,7 +276,8 @@ function EonUI:CreateESPContent(parent)
         "ammo"
     }
     
-    local yOffset = 10
+    local yOffset = 15
+    local lineHeight = 25  -- Consistent line height
     
     -- Section label
     local sectionLabel = Instance.new("TextLabel")
@@ -251,28 +287,28 @@ function EonUI:CreateESPContent(parent)
     sectionLabel.TextSize = 13
     sectionLabel.TextXAlignment = Enum.TextXAlignment.Left
     sectionLabel.BackgroundTransparency = 1
-    sectionLabel.Position = UDim2.new(0, 15, 0, yOffset)
+    sectionLabel.Position = UDim2.new(0, 20, 0, yOffset)
     sectionLabel.Size = UDim2.new(0, 100, 0, 20)
     sectionLabel.Parent = parent
     
-    yOffset = yOffset + 25
+    yOffset = yOffset + 30
     
     for _, optionName in ipairs(options) do
         local option = {}
         option.Name = optionName
         
-        -- Container
+        -- Container (perfect alignment)
         option.Container = Instance.new("Frame")
-        option.Container.Size = UDim2.new(1, -30, 0, 20)
-        option.Container.Position = UDim2.new(0, 15, 0, yOffset)
+        option.Container.Size = UDim2.new(1, -40, 0, lineHeight)
+        option.Container.Position = UDim2.new(0, 20, 0, yOffset)
         option.Container.BackgroundTransparency = 1
         option.Container.Parent = parent
         
-        -- Checkbox
+        -- Checkbox (ALL options have checkboxes)
         option.Checkbox = Instance.new("TextButton")
         option.Checkbox.Size = UDim2.new(0, 12, 0, 12)
         option.Checkbox.Position = UDim2.new(0, 0, 0.5, -6)
-        option.Checkbox.BackgroundColor3 = Theme.Background
+        option.Checkbox.BackgroundColor3 = Theme.CheckboxBackground
         option.Checkbox.BorderSizePixel = 0
         option.Checkbox.Text = ""
         option.Checkbox.Parent = option.Container
@@ -287,7 +323,7 @@ function EonUI:CreateESPContent(parent)
         option.Check.Size = UDim2.new(1, -4, 1, -4)
         option.Check.Position = UDim2.new(0.5, 0, 0.5, 0)
         option.Check.AnchorPoint = Vector2.new(0.5, 0.5)
-        option.Check.BackgroundColor3 = Theme.CheckboxChecked
+        option.Check.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         option.Check.BorderSizePixel = 0
         option.Check.Visible = false
         option.Check.Parent = option.Checkbox
@@ -301,22 +337,32 @@ function EonUI:CreateESPContent(parent)
         option.Label.TextXAlignment = Enum.TextXAlignment.Left
         option.Label.BackgroundTransparency = 1
         option.Label.Position = UDim2.new(0, 20, 0, 0)
-        option.Label.Size = UDim2.new(0, 150, 1, 0)
+        option.Label.Size = UDim2.new(0, 200, 1, 0)
         option.Label.Parent = option.Container
         
-        -- Color Display
-        option.ColorDisplay = Instance.new("TextButton")
-        option.ColorDisplay.Size = UDim2.new(0, 40, 0, 14)
-        option.ColorDisplay.Position = UDim2.new(1, -45, 0.5, -7)
-        option.ColorDisplay.BackgroundColor3 = DefaultColors[optionName] or Color3.fromRGB(255, 255, 255)
-        option.ColorDisplay.BorderSizePixel = 0
-        option.ColorDisplay.Text = ""
-        option.ColorDisplay.Parent = option.Container
-        
-        local ColorBorder = Instance.new("UIStroke")
-        ColorBorder.Color = Theme.Border
-        ColorBorder.Thickness = 1
-        ColorBorder.Parent = option.ColorDisplay
+        -- Color Display (only for box, health, ammo)
+        if ESPColors[optionName] then
+            option.ColorDisplay = Instance.new("TextButton")
+            option.ColorDisplay.Size = UDim2.new(0, Theme.ColorBarSize.X, 0, Theme.ColorBarSize.Y)
+            option.ColorDisplay.Position = UDim2.new(1, -Theme.ColorBarSize.X - 10, 0.5, -Theme.ColorBarSize.Y/2)
+            option.ColorDisplay.BackgroundColor3 = ESPColors[optionName]
+            option.ColorDisplay.BorderSizePixel = 0
+            option.ColorDisplay.Text = ""
+            option.ColorDisplay.Parent = option.Container
+            
+            local ColorBorder = Instance.new("UIStroke")
+            ColorBorder.Color = Theme.Border
+            ColorBorder.Thickness = 1
+            ColorBorder.Parent = option.ColorDisplay
+            
+            -- Color picker functionality
+            option.ColorDisplay.MouseButton1Click:Connect(function()
+                self:CreateColorPicker(option.ColorDisplay, function(color)
+                    option.ColorDisplay.BackgroundColor3 = color
+                    ESPColors[optionName] = color
+                end)
+            end)
+        end
         
         -- Checkbox functionality
         option.Value = false
@@ -325,21 +371,280 @@ function EonUI:CreateESPContent(parent)
             option.Check.Visible = option.Value
         end)
         
-        -- Color picker functionality
-        option.ColorDisplay.MouseButton1Click:Connect(function()
-            self:CreateColorPicker(option.ColorDisplay, function(color)
-                option.ColorDisplay.BackgroundColor3 = color
-            end)
-        end)
-        
         self.Options[optionName] = option
-        yOffset = yOffset + 22
+        yOffset = yOffset + lineHeight
     end
 end
 
--- Create Color Picker
+-- Create Ragebot Content
+function EonUI:CreateRagebotContent(parent)
+    local yOffset = 15
+    
+    -- Section: Aimbot
+    local aimbotLabel = Instance.new("TextLabel")
+    aimbotLabel.Text = "aimbot"
+    aimbotLabel.Font = Enum.Font.SourceSans
+    aimbotLabel.TextColor3 = Theme.TextPrimary
+    aimbotLabel.TextSize = 13
+    aimbotLabel.TextXAlignment = Enum.TextXAlignment.Left
+    aimbotLabel.BackgroundTransparency = 1
+    aimbotLabel.Position = UDim2.new(0, 20, 0, yOffset)
+    aimbotLabel.Size = UDim2.new(0, 100, 0, 20)
+    aimbotLabel.Parent = parent
+    
+    yOffset = yOffset + 30
+    
+    local ragebotOptions = {
+        "Enable",
+        "Silent Aim",
+        "Auto Fire",
+        "Auto Wall",
+        "Target Selection",
+        "FOV Check"
+    }
+    
+    for _, optionName in ipairs(ragebotOptions) do
+        self:CreateCheckboxOption(parent, optionName, yOffset)
+        yOffset = yOffset + 25
+    end
+end
+
+-- Create Visuals Content
+function EonUI:CreateVisualsContent(parent)
+    local yOffset = 15
+    
+    local visualsLabel = Instance.new("TextLabel")
+    visualsLabel.Text = "world"
+    visualsLabel.Font = Enum.Font.SourceSans
+    visualsLabel.TextColor3 = Theme.TextPrimary
+    visualsLabel.TextSize = 13
+    visualsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    visualsLabel.BackgroundTransparency = 1
+    visualsLabel.Position = UDim2.new(0, 20, 0, yOffset)
+    visualsLabel.Size = UDim2.new(0, 100, 0, 20)
+    visualsLabel.Parent = parent
+    
+    yOffset = yOffset + 30
+    
+    local visualOptions = {
+        "Remove Fog",
+        "Full Bright",
+        "No Shadows",
+        "Custom Skybox",
+        "Time Changer",
+        "Weather"
+    }
+    
+    for _, optionName in ipairs(visualOptions) do
+        self:CreateCheckboxOption(parent, optionName, yOffset)
+        yOffset = yOffset + 25
+    end
+end
+
+-- Create Misc Content
+function EonUI:CreateMiscContent(parent)
+    local yOffset = 15
+    
+    local miscLabel = Instance.new("TextLabel")
+    miscLabel.Text = "movement"
+    miscLabel.Font = Enum.Font.SourceSans
+    miscLabel.TextColor3 = Theme.TextPrimary
+    miscLabel.TextSize = 13
+    miscLabel.TextXAlignment = Enum.TextXAlignment.Left
+    miscLabel.BackgroundTransparency = 1
+    miscLabel.Position = UDim2.new(0, 20, 0, yOffset)
+    miscLabel.Size = UDim2.new(0, 100, 0, 20)
+    miscLabel.Parent = parent
+    
+    yOffset = yOffset + 30
+    
+    local miscOptions = {
+        "Bunny Hop",
+        "Auto Strafe",
+        "Edge Jump",
+        "No Fall Damage",
+        "Infinite Stamina",
+        "Speed Hack"
+    }
+    
+    for _, optionName in ipairs(miscOptions) do
+        self:CreateCheckboxOption(parent, optionName, yOffset)
+        yOffset = yOffset + 25
+    end
+end
+
+-- Create Exploits Content
+function EonUI:CreateExploitsContent(parent)
+    local yOffset = 15
+    
+    local exploitsLabel = Instance.new("TextLabel")
+    exploitsLabel.Text = "exploits"
+    exploitsLabel.Font = Enum.Font.SourceSans
+    exploitsLabel.TextColor3 = Theme.TextPrimary
+    exploitsLabel.TextSize = 13
+    exploitsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    exploitsLabel.BackgroundTransparency = 1
+    exploitsLabel.Position = UDim2.new(0, 20, 0, yOffset)
+    exploitsLabel.Size = UDim2.new(0, 100, 0, 20)
+    exploitsLabel.Parent = parent
+    
+    yOffset = yOffset + 30
+    
+    local exploitOptions = {
+        "Double Tap",
+        "Hide Shots",
+        "Fake Lag",
+        "Fake Duck",
+        "Anti Aim",
+        "Resolver"
+    }
+    
+    for _, optionName in ipairs(exploitOptions) do
+        self:CreateCheckboxOption(parent, optionName, yOffset)
+        yOffset = yOffset + 25
+    end
+end
+
+-- Create Config Content
+function EonUI:CreateConfigContent(parent)
+    local yOffset = 15
+    
+    local configLabel = Instance.new("TextLabel")
+    configLabel.Text = "configuration"
+    configLabel.Font = Enum.Font.SourceSans
+    configLabel.TextColor3 = Theme.TextPrimary
+    configLabel.TextSize = 13
+    configLabel.TextXAlignment = Enum.TextXAlignment.Left
+    configLabel.BackgroundTransparency = 1
+    configLabel.Position = UDim2.new(0, 20, 0, yOffset)
+    configLabel.Size = UDim2.new(0, 100, 0, 20)
+    configLabel.Parent = parent
+    
+    yOffset = yOffset + 30
+    
+    -- Config name input
+    local configNameContainer = Instance.new("Frame")
+    configNameContainer.Size = UDim2.new(1, -40, 0, 25)
+    configNameContainer.Position = UDim2.new(0, 20, 0, yOffset)
+    configNameContainer.BackgroundTransparency = 1
+    configNameContainer.Parent = parent
+    
+    local configNameLabel = Instance.new("TextLabel")
+    configNameLabel.Text = "Config Name:"
+    configNameLabel.Font = Enum.Font.SourceSans
+    configNameLabel.TextColor3 = Theme.TextPrimary
+    configNameLabel.TextSize = 13
+    configNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    configNameLabel.BackgroundTransparency = 1
+    configNameLabel.Position = UDim2.new(0, 0, 0, 0)
+    configNameLabel.Size = UDim2.new(0, 100, 1, 0)
+    configNameLabel.Parent = configNameContainer
+    
+    local configNameInput = Instance.new("TextBox")
+    configNameInput.Text = "default"
+    configNameInput.Font = Enum.Font.SourceSans
+    configNameInput.TextColor3 = Theme.TextPrimary
+    configNameInput.TextSize = 13
+    configNameInput.BackgroundColor3 = Theme.TabBackground
+    configNameInput.BorderSizePixel = 0
+    configNameInput.Position = UDim2.new(0, 110, 0, 0)
+    configNameInput.Size = UDim2.new(0, 150, 1, 0)
+    configNameInput.Parent = configNameContainer
+    
+    yOffset = yOffset + 35
+    
+    -- Buttons
+    local buttonWidth = 100
+    local buttonHeight = 25
+    local buttonSpacing = 10
+    
+    local saveButton = Instance.new("TextButton")
+    saveButton.Text = "Save Config"
+    saveButton.Font = Enum.Font.SourceSans
+    saveButton.TextColor3 = Theme.TextPrimary
+    saveButton.TextSize = 13
+    saveButton.BackgroundColor3 = Theme.TabActive
+    saveButton.BorderSizePixel = 0
+    saveButton.Position = UDim2.new(0, 20, 0, yOffset)
+    saveButton.Size = UDim2.new(0, buttonWidth, 0, buttonHeight)
+    saveButton.Parent = parent
+    
+    local loadButton = Instance.new("TextButton")
+    loadButton.Text = "Load Config"
+    loadButton.Font = Enum.Font.SourceSans
+    loadButton.TextColor3 = Theme.TextPrimary
+    loadButton.TextSize = 13
+    loadButton.BackgroundColor3 = Theme.TabActive
+    loadButton.BorderSizePixel = 0
+    loadButton.Position = UDim2.new(0, 20 + buttonWidth + buttonSpacing, 0, yOffset)
+    loadButton.Size = UDim2.new(0, buttonWidth, 0, buttonHeight)
+    loadButton.Parent = parent
+    
+    local deleteButton = Instance.new("TextButton")
+    deleteButton.Text = "Delete Config"
+    deleteButton.Font = Enum.Font.SourceSans
+    deleteButton.TextColor3 = Theme.TextPrimary
+    deleteButton.TextSize = 13
+    deleteButton.BackgroundColor3 = Theme.TabActive
+    deleteButton.BorderSizePixel = 0
+    deleteButton.Position = UDim2.new(0, 20 + (buttonWidth + buttonSpacing) * 2, 0, yOffset)
+    deleteButton.Size = UDim2.new(0, buttonWidth, 0, buttonHeight)
+    deleteButton.Parent = parent
+end
+
+-- Helper function to create checkbox option
+function EonUI:CreateCheckboxOption(parent, name, yOffset)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, -40, 0, 25)
+    container.Position = UDim2.new(0, 20, 0, yOffset)
+    container.BackgroundTransparency = 1
+    container.Parent = parent
+    
+    local checkbox = Instance.new("TextButton")
+    checkbox.Size = UDim2.new(0, 12, 0, 12)
+    checkbox.Position = UDim2.new(0, 0, 0.5, -6)
+    checkbox.BackgroundColor3 = Theme.CheckboxBackground
+    checkbox.BorderSizePixel = 0
+    checkbox.Text = ""
+    checkbox.Parent = container
+    
+    local checkboxBorder = Instance.new("UIStroke")
+    checkboxBorder.Color = Theme.CheckboxBorder
+    checkboxBorder.Thickness = 1
+    checkboxBorder.Parent = checkbox
+    
+    local check = Instance.new("Frame")
+    check.Size = UDim2.new(1, -4, 1, -4)
+    check.Position = UDim2.new(0.5, 0, 0.5, 0)
+    check.AnchorPoint = Vector2.new(0.5, 0.5)
+    check.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    check.BorderSizePixel = 0
+    check.Visible = false
+    check.Parent = checkbox
+    
+    local label = Instance.new("TextLabel")
+    label.Text = name
+    label.Font = Enum.Font.SourceSans
+    label.TextColor3 = Theme.TextPrimary
+    label.TextSize = 13
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0, 20, 0, 0)
+    label.Size = UDim2.new(0, 200, 1, 0)
+    label.Parent = container
+    
+    local value = false
+    checkbox.MouseButton1Click:Connect(function()
+        value = not value
+        check.Visible = value
+    end)
+    
+    return container
+end
+
+-- Create Color Picker (Working)
 function EonUI:CreateColorPicker(button, callback)
-    -- Close any existing color picker
+    -- Close existing color picker
     if self.ColorPicker then
         self.ColorPicker:Destroy()
     end
@@ -347,10 +652,10 @@ function EonUI:CreateColorPicker(button, callback)
     -- Create color picker window
     self.ColorPicker = Instance.new("Frame")
     self.ColorPicker.Size = UDim2.new(0, 200, 0, 220)
-    self.ColorPicker.Position = UDim2.new(0, button.AbsolutePosition.X - 200, 0, button.AbsolutePosition.Y)
+    self.ColorPicker.Position = UDim2.new(0, button.AbsolutePosition.X - 210, 0, button.AbsolutePosition.Y - 50)
     self.ColorPicker.BackgroundColor3 = Theme.TabBackground
     self.ColorPicker.BorderSizePixel = 0
-    self.ColorPicker.ZIndex = 10
+    self.ColorPicker.ZIndex = 20
     self.ColorPicker.Parent = self.ScreenGui
     
     local PickerBorder = Instance.new("UIStroke")
@@ -366,7 +671,6 @@ function EonUI:CreateColorPicker(button, callback)
     SVCanvas.BorderSizePixel = 0
     SVCanvas.Parent = self.ColorPicker
     
-    -- Create SV gradient
     local SVGradient1 = Instance.new("UIGradient")
     SVGradient1.Color = ColorSequence.new{
         ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
@@ -374,36 +678,6 @@ function EonUI:CreateColorPicker(button, callback)
     }
     SVGradient1.Rotation = 90
     SVGradient1.Parent = SVCanvas
-    
-    local SVOverlay = Instance.new("Frame")
-    SVOverlay.Size = UDim2.new(1, 0, 1, 0)
-    SVOverlay.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    SVOverlay.BorderSizePixel = 0
-    SVOverlay.Parent = SVCanvas
-    
-    local SVGradient2 = Instance.new("UIGradient")
-    SVGradient2.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-        ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1))
-    }
-    SVGradient2.Transparency = NumberSequence.new{
-        NumberSequenceKeypoint.new(0, 0),
-        NumberSequenceKeypoint.new(1, 1)
-    }
-    SVGradient2.Parent = SVOverlay
-    
-    -- SV Cursor
-    local SVCursor = Instance.new("Frame")
-    SVCursor.Size = UDim2.new(0, 8, 0, 8)
-    SVCursor.Position = UDim2.new(0, -4, 0, -4)
-    SVCursor.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    SVCursor.BorderSizePixel = 1
-    SVCursor.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    SVCursor.Parent = SVCanvas
-    
-    local SVCursorCorner = Instance.new("UICorner")
-    SVCursorCorner.CornerRadius = UDim.new(0, 4)
-    SVCursorCorner.Parent = SVCursor
     
     -- Hue Slider
     local HueSlider = Instance.new("Frame")
@@ -426,7 +700,15 @@ function EonUI:CreateColorPicker(button, callback)
     HueGradient.Rotation = 90
     HueGradient.Parent = HueSlider
     
-    -- Hue Cursor
+    -- Cursors
+    local SVCursor = Instance.new("Frame")
+    SVCursor.Size = UDim2.new(0, 8, 0, 8)
+    SVCursor.Position = UDim2.new(0, -4, 0, -4)
+    SVCursor.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    SVCursor.BorderSizePixel = 1
+    SVCursor.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    SVCursor.Parent = SVCanvas
+    
     local HueCursor = Instance.new("Frame")
     HueCursor.Size = UDim2.new(1, 4, 0, 4)
     HueCursor.Position = UDim2.new(0, -2, 0, -2)
@@ -443,11 +725,6 @@ function EonUI:CreateColorPicker(button, callback)
     Preview.BorderSizePixel = 0
     Preview.Parent = self.ColorPicker
     
-    local PreviewBorder = Instance.new("UIStroke")
-    PreviewBorder.Color = Theme.Border
-    PreviewBorder.Thickness = 1
-    PreviewBorder.Parent = Preview
-    
     -- OK Button
     local OKButton = Instance.new("TextButton")
     OKButton.Size = UDim2.new(0, 60, 0, 20)
@@ -460,33 +737,29 @@ function EonUI:CreateColorPicker(button, callback)
     OKButton.TextSize = 12
     OKButton.Parent = self.ColorPicker
     
-    -- Variables
+    -- Color picker logic
     local h, s, v = RGBToHSV(button.BackgroundColor3)
     local draggingSV = false
     local draggingHue = false
     
-    -- Update color
     local function updateColor()
         local color = HSVToRGB(h, s, v)
         SVCanvas.BackgroundColor3 = HSVToRGB(h, 1, 1)
         Preview.BackgroundColor3 = color
     end
     
-    -- SV dragging
     SVCanvas.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             draggingSV = true
         end
     end)
     
-    -- Hue dragging
     HueSlider.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             draggingHue = true
         end
     end)
     
-    -- Mouse handling
     UserInputService.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement then
             if draggingSV then
@@ -516,29 +789,10 @@ function EonUI:CreateColorPicker(button, callback)
         end
     end)
     
-    -- OK button
     OKButton.MouseButton1Click:Connect(function()
         callback(Preview.BackgroundColor3)
         self.ColorPicker:Destroy()
         self.ColorPicker = nil
-    end)
-    
-    -- Close on click outside
-    local closeConnection
-    closeConnection = UserInputService.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            local mouse = Players.LocalPlayer:GetMouse()
-            local pos = Vector2.new(mouse.X, mouse.Y)
-            local abs = self.ColorPicker.AbsolutePosition
-            local size = self.ColorPicker.AbsoluteSize
-            
-            if not (pos.X >= abs.X and pos.X <= abs.X + size.X and 
-                    pos.Y >= abs.Y and pos.Y <= abs.Y + size.Y) then
-                self.ColorPicker:Destroy()
-                self.ColorPicker = nil
-                closeConnection:Disconnect()
-            end
-        end
     end)
     
     -- Set initial positions
