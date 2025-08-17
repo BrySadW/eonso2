@@ -1,0 +1,782 @@
+-- EonUI Library v1.0
+-- GitHub: YourUsername/EonUI
+-- A modern, dark-themed UI library for Roblox
+
+local EonUI = {}
+EonUI.__index = EonUI
+
+-- Services
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+-- Configuration
+local Theme = {
+    Background = Color3.fromRGB(13, 13, 13),
+    Secondary = Color3.fromRGB(17, 17, 17),
+    Tertiary = Color3.fromRGB(22, 22, 22),
+    Border = Color3.fromRGB(48, 48, 48),
+    TextPrimary = Color3.fromRGB(255, 255, 255),
+    TextSecondary = Color3.fromRGB(240, 240, 240),
+    TextDisabled = Color3.fromRGB(90, 90, 90),
+    Accent = Color3.fromRGB(100, 150, 255),
+    ElementBackground = Color3.fromRGB(17, 17, 17),
+    ElementBorder = Color3.fromRGB(58, 58, 58),
+    SliderBar = Color3.fromRGB(220, 220, 220),
+    CheckboxChecked = Color3.fromRGB(255, 255, 255)
+}
+
+-- Utility Functions
+local function CreateTween(object, properties, duration)
+    local tween = TweenService:Create(
+        object,
+        TweenInfo.new(duration or 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        properties
+    )
+    tween:Play()
+    return tween
+end
+
+local function AddHoverEffect(button, normalColor, hoverColor)
+    button.MouseEnter:Connect(function()
+        CreateTween(button, {BackgroundColor3 = hoverColor or Color3.fromRGB(30, 30, 30)})
+    end)
+    
+    button.MouseLeave:Connect(function()
+        CreateTween(button, {BackgroundColor3 = normalColor or Theme.ElementBackground})
+    end)
+end
+
+-- Main Window Class
+function EonUI.new(config)
+    local self = setmetatable({}, EonUI)
+    
+    config = config or {}
+    self.Name = config.Name or "eon"
+    self.Size = config.Size or UDim2.new(0, 600, 0, 400)
+    self.Sections = {}
+    self.Elements = {}
+    
+    -- Create ScreenGui
+    self.ScreenGui = Instance.new("ScreenGui")
+    self.ScreenGui.Name = "EonUI"
+    self.ScreenGui.ResetOnSpawn = false
+    self.ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+    -- Main Frame
+    self.MainFrame = Instance.new("Frame")
+    self.MainFrame.Name = "MainFrame"
+    self.MainFrame.Size = self.Size
+    self.MainFrame.Position = UDim2.new(0.5, -self.Size.X.Offset/2, 0.5, -self.Size.Y.Offset/2)
+    self.MainFrame.BackgroundColor3 = Theme.Background
+    self.MainFrame.BorderSizePixel = 0
+    self.MainFrame.Parent = self.ScreenGui
+    
+    -- Add border
+    local Border = Instance.new("UIStroke")
+    Border.Color = Theme.Border
+    Border.Thickness = 1
+    Border.Parent = self.MainFrame
+    
+    -- Title Bar
+    self.TitleBar = Instance.new("Frame")
+    self.TitleBar.Size = UDim2.new(1, 0, 0, 30)
+    self.TitleBar.BackgroundColor3 = Theme.Secondary
+    self.TitleBar.BorderSizePixel = 0
+    self.TitleBar.Parent = self.MainFrame
+    
+    -- Title Text (Editable)
+    self.TitleInput = Instance.new("TextBox")
+    self.TitleInput.Text = self.Name
+    self.TitleInput.Font = Enum.Font.SourceSansBold
+    self.TitleInput.TextColor3 = Theme.TextPrimary
+    self.TitleInput.TextSize = 16
+    self.TitleInput.BackgroundTransparency = 1
+    self.TitleInput.Position = UDim2.new(0, 10, 0, 0)
+    self.TitleInput.Size = UDim2.new(0, 200, 1, 0)
+    self.TitleInput.TextXAlignment = Enum.TextXAlignment.Left
+    self.TitleInput.ClearTextOnFocus = false
+    self.TitleInput.Parent = self.TitleBar
+    
+    -- Content Frame
+    self.ContentFrame = Instance.new("ScrollingFrame")
+    self.ContentFrame.Size = UDim2.new(1, -10, 1, -35)
+    self.ContentFrame.Position = UDim2.new(0, 5, 0, 30)
+    self.ContentFrame.BackgroundTransparency = 1
+    self.ContentFrame.BorderSizePixel = 0
+    self.ContentFrame.ScrollBarThickness = 4
+    self.ContentFrame.ScrollBarImageColor3 = Theme.Border
+    self.ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    self.ContentFrame.Parent = self.MainFrame
+    
+    -- Make draggable
+    self:MakeDraggable()
+    
+    return self
+end
+
+-- Make window draggable
+function EonUI:MakeDraggable()
+    local dragging = false
+    local dragStart = nil
+    local startPos = nil
+    
+    self.TitleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = self.MainFrame.Position
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            self.MainFrame.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+end
+
+-- Create Section
+function EonUI:CreateSection(name)
+    local section = {}
+    section.Name = name
+    section.Elements = {}
+    section.YOffset = 0
+    
+    -- Section Frame
+    section.Frame = Instance.new("Frame")
+    section.Frame.Size = UDim2.new(1, -10, 0, 0)
+    section.Frame.Position = UDim2.new(0, 5, 0, #self.Sections * 5)
+    section.Frame.BackgroundTransparency = 1
+    section.Frame.Parent = self.ContentFrame
+    
+    -- Section Label
+    section.Label = Instance.new("TextLabel")
+    section.Label.Text = name
+    section.Label.Font = Enum.Font.SourceSansSemibold
+    section.Label.TextColor3 = Theme.TextSecondary
+    section.Label.TextSize = 14
+    section.Label.TextXAlignment = Enum.TextXAlignment.Left
+    section.Label.BackgroundTransparency = 1
+    section.Label.Position = UDim2.new(0, 0, 0, section.YOffset)
+    section.Label.Size = UDim2.new(1, 0, 0, 20)
+    section.Label.Parent = section.Frame
+    
+    section.YOffset = section.YOffset + 25
+    
+    table.insert(self.Sections, section)
+    self:UpdateCanvasSize()
+    
+    return section
+end
+
+-- Add Checkbox
+function EonUI:AddCheckbox(section, name, default, callback)
+    local checkbox = {}
+    checkbox.Value = default or false
+    checkbox.Callback = callback or function() end
+    
+    -- Container
+    checkbox.Container = Instance.new("Frame")
+    checkbox.Container.Size = UDim2.new(1, 0, 0, 20)
+    checkbox.Container.Position = UDim2.new(0, 0, 0, section.YOffset)
+    checkbox.Container.BackgroundTransparency = 1
+    checkbox.Container.Parent = section.Frame
+    
+    -- Checkbox Box
+    checkbox.Box = Instance.new("TextButton")
+    checkbox.Box.Size = UDim2.new(0, 16, 0, 16)
+    checkbox.Box.Position = UDim2.new(0, 5, 0.5, -8)
+    checkbox.Box.BackgroundColor3 = Theme.ElementBackground
+    checkbox.Box.BorderSizePixel = 0
+    checkbox.Box.Text = ""
+    checkbox.Box.Parent = checkbox.Container
+    
+    local BoxBorder = Instance.new("UIStroke")
+    BoxBorder.Color = Theme.ElementBorder
+    BoxBorder.Thickness = 1
+    BoxBorder.Parent = checkbox.Box
+    
+    -- Checkmark
+    checkbox.Check = Instance.new("Frame")
+    checkbox.Check.Size = UDim2.new(1, -6, 1, -6)
+    checkbox.Check.Position = UDim2.new(0.5, 0, 0.5, 0)
+    checkbox.Check.AnchorPoint = Vector2.new(0.5, 0.5)
+    checkbox.Check.BackgroundColor3 = Theme.CheckboxChecked
+    checkbox.Check.BorderSizePixel = 0
+    checkbox.Check.Visible = checkbox.Value
+    checkbox.Check.Parent = checkbox.Box
+    
+    -- Label
+    checkbox.Label = Instance.new("TextLabel")
+    checkbox.Label.Text = name
+    checkbox.Label.Font = Enum.Font.SourceSans
+    checkbox.Label.TextColor3 = Theme.TextSecondary
+    checkbox.Label.TextSize = 14
+    checkbox.Label.TextXAlignment = Enum.TextXAlignment.Left
+    checkbox.Label.BackgroundTransparency = 1
+    checkbox.Label.Position = UDim2.new(0, 25, 0, 0)
+    checkbox.Label.Size = UDim2.new(1, -25, 1, 0)
+    checkbox.Label.Parent = checkbox.Container
+    
+    -- Click event
+    checkbox.Box.MouseButton1Click:Connect(function()
+        checkbox.Value = not checkbox.Value
+        checkbox.Check.Visible = checkbox.Value
+        checkbox.Callback(checkbox.Value)
+    end)
+    
+    section.YOffset = section.YOffset + 25
+    self:UpdateCanvasSize()
+    
+    return checkbox
+end
+
+-- Add Slider
+function EonUI:AddSlider(section, name, min, max, default, callback)
+    local slider = {}
+    slider.Min = min
+    slider.Max = max
+    slider.Value = default or min
+    slider.Callback = callback or function() end
+    
+    -- Container
+    slider.Container = Instance.new("Frame")
+    slider.Container.Size = UDim2.new(1, 0, 0, 40)
+    slider.Container.Position = UDim2.new(0, 0, 0, section.YOffset)
+    slider.Container.BackgroundTransparency = 1
+    slider.Container.Parent = section.Frame
+    
+    -- Label
+    slider.Label = Instance.new("TextLabel")
+    slider.Label.Text = name
+    slider.Label.Font = Enum.Font.SourceSans
+    slider.Label.TextColor3 = Theme.TextSecondary
+    slider.Label.TextSize = 14
+    slider.Label.TextXAlignment = Enum.TextXAlignment.Left
+    slider.Label.BackgroundTransparency = 1
+    slider.Label.Position = UDim2.new(0, 5, 0, 0)
+    slider.Label.Size = UDim2.new(0.5, 0, 0, 20)
+    slider.Label.Parent = slider.Container
+    
+    -- Value Label
+    slider.ValueLabel = Instance.new("TextLabel")
+    slider.ValueLabel.Text = tostring(slider.Value)
+    slider.ValueLabel.Font = Enum.Font.SourceSans
+    slider.ValueLabel.TextColor3 = Theme.TextPrimary
+    slider.ValueLabel.TextSize = 14
+    slider.ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+    slider.ValueLabel.BackgroundTransparency = 1
+    slider.ValueLabel.Position = UDim2.new(0.5, 0, 0, 0)
+    slider.ValueLabel.Size = UDim2.new(0.5, -10, 0, 20)
+    slider.ValueLabel.Parent = slider.Container
+    
+    -- Slider Bar
+    slider.Bar = Instance.new("Frame")
+    slider.Bar.Size = UDim2.new(1, -10, 0, 4)
+    slider.Bar.Position = UDim2.new(0, 5, 0, 25)
+    slider.Bar.BackgroundColor3 = Theme.ElementBorder
+    slider.Bar.BorderSizePixel = 0
+    slider.Bar.Parent = slider.Container
+    
+    -- Slider Fill
+    slider.Fill = Instance.new("Frame")
+    slider.Fill.Size = UDim2.new((slider.Value - min) / (max - min), 0, 1, 0)
+    slider.Fill.BackgroundColor3 = Theme.SliderBar
+    slider.Fill.BorderSizePixel = 0
+    slider.Fill.Parent = slider.Bar
+    
+    -- Slider Handle
+    slider.Handle = Instance.new("TextButton")
+    slider.Handle.Size = UDim2.new(0, 12, 0, 12)
+    slider.Handle.Position = UDim2.new((slider.Value - min) / (max - min), -6, 0.5, -6)
+    slider.Handle.BackgroundColor3 = Theme.TextPrimary
+    slider.Handle.BorderSizePixel = 0
+    slider.Handle.Text = ""
+    slider.Handle.Parent = slider.Bar
+    
+    local HandleCorner = Instance.new("UICorner")
+    HandleCorner.CornerRadius = UDim.new(0, 6)
+    HandleCorner.Parent = slider.Handle
+    
+    -- Dragging
+    local dragging = false
+    
+    slider.Handle.MouseButton1Down:Connect(function()
+        dragging = true
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    RunService.RenderStepped:Connect(function()
+        if dragging then
+            local mouse = Players.LocalPlayer:GetMouse()
+            local relativeX = math.clamp((mouse.X - slider.Bar.AbsolutePosition.X) / slider.Bar.AbsoluteSize.X, 0, 1)
+            slider.Value = math.floor(min + (max - min) * relativeX)
+            
+            slider.Handle.Position = UDim2.new(relativeX, -6, 0.5, -6)
+            slider.Fill.Size = UDim2.new(relativeX, 0, 1, 0)
+            slider.ValueLabel.Text = tostring(slider.Value)
+            slider.Callback(slider.Value)
+        end
+    end)
+    
+    section.YOffset = section.YOffset + 45
+    self:UpdateCanvasSize()
+    
+    return slider
+end
+
+-- Add Dropdown
+function EonUI:AddDropdown(section, name, options, default, callback)
+    local dropdown = {}
+    dropdown.Options = options
+    dropdown.Value = default or options[1]
+    dropdown.Callback = callback or function() end
+    dropdown.Open = false
+    
+    -- Container
+    dropdown.Container = Instance.new("Frame")
+    dropdown.Container.Size = UDim2.new(1, 0, 0, 20)
+    dropdown.Container.Position = UDim2.new(0, 0, 0, section.YOffset)
+    dropdown.Container.BackgroundTransparency = 1
+    dropdown.Container.Parent = section.Frame
+    
+    -- Label
+    dropdown.Label = Instance.new("TextLabel")
+    dropdown.Label.Text = name
+    dropdown.Label.Font = Enum.Font.SourceSans
+    dropdown.Label.TextColor3 = Theme.TextSecondary
+    dropdown.Label.TextSize = 14
+    dropdown.Label.TextXAlignment = Enum.TextXAlignment.Left
+    dropdown.Label.BackgroundTransparency = 1
+    dropdown.Label.Position = UDim2.new(0, 5, 0, 0)
+    dropdown.Label.Size = UDim2.new(0.4, 0, 1, 0)
+    dropdown.Label.Parent = dropdown.Container
+    
+    -- Dropdown Button
+    dropdown.Button = Instance.new("TextButton")
+    dropdown.Button.Size = UDim2.new(0.55, -5, 1, 0)
+    dropdown.Button.Position = UDim2.new(0.45, 0, 0, 0)
+    dropdown.Button.BackgroundColor3 = Theme.ElementBackground
+    dropdown.Button.BorderSizePixel = 0
+    dropdown.Button.Text = ""
+    dropdown.Button.Parent = dropdown.Container
+    
+    local ButtonBorder = Instance.new("UIStroke")
+    ButtonBorder.Color = Theme.ElementBorder
+    ButtonBorder.Thickness = 1
+    ButtonBorder.Parent = dropdown.Button
+    
+    -- Current Value
+    dropdown.CurrentLabel = Instance.new("TextLabel")
+    dropdown.CurrentLabel.Text = dropdown.Value
+    dropdown.CurrentLabel.Font = Enum.Font.SourceSans
+    dropdown.CurrentLabel.TextColor3 = Theme.TextPrimary
+    dropdown.CurrentLabel.TextSize = 13
+    dropdown.CurrentLabel.TextXAlignment = Enum.TextXAlignment.Left
+    dropdown.CurrentLabel.BackgroundTransparency = 1
+    dropdown.CurrentLabel.Position = UDim2.new(0, 8, 0, 0)
+    dropdown.CurrentLabel.Size = UDim2.new(1, -30, 1, 0)
+    dropdown.CurrentLabel.Parent = dropdown.Button
+    
+    -- Arrow
+    dropdown.Arrow = Instance.new("TextLabel")
+    dropdown.Arrow.Text = "▼"
+    dropdown.Arrow.Font = Enum.Font.SourceSans
+    dropdown.Arrow.TextColor3 = Theme.TextDisabled
+    dropdown.Arrow.TextSize = 10
+    dropdown.Arrow.BackgroundTransparency = 1
+    dropdown.Arrow.Position = UDim2.new(1, -20, 0, 0)
+    dropdown.Arrow.Size = UDim2.new(0, 15, 1, 0)
+    dropdown.Arrow.Parent = dropdown.Button
+    
+    -- Options Frame
+    dropdown.OptionsFrame = Instance.new("Frame")
+    dropdown.OptionsFrame.Size = UDim2.new(0.55, -5, 0, #options * 20)
+    dropdown.OptionsFrame.Position = UDim2.new(0.45, 0, 1, 2)
+    dropdown.OptionsFrame.BackgroundColor3 = Theme.ElementBackground
+    dropdown.OptionsFrame.BorderSizePixel = 0
+    dropdown.OptionsFrame.Visible = false
+    dropdown.OptionsFrame.ZIndex = 10
+    dropdown.OptionsFrame.Parent = dropdown.Container
+    
+    local OptionsBorder = Instance.new("UIStroke")
+    OptionsBorder.Color = Theme.ElementBorder
+    OptionsBorder.Thickness = 1
+    OptionsBorder.Parent = dropdown.OptionsFrame
+    
+    -- Create option buttons
+    for i, option in ipairs(options) do
+        local OptionButton = Instance.new("TextButton")
+        OptionButton.Size = UDim2.new(1, 0, 0, 20)
+        OptionButton.Position = UDim2.new(0, 0, 0, (i-1) * 20)
+        OptionButton.BackgroundTransparency = 1
+        OptionButton.Text = ""
+        OptionButton.ZIndex = 11
+        OptionButton.Parent = dropdown.OptionsFrame
+        
+        local OptionLabel = Instance.new("TextLabel")
+        OptionLabel.Text = option
+        OptionLabel.Font = Enum.Font.SourceSans
+        OptionLabel.TextColor3 = Theme.TextSecondary
+        OptionLabel.TextSize = 13
+        OptionLabel.TextXAlignment = Enum.TextXAlignment.Left
+        OptionLabel.BackgroundTransparency = 1
+        OptionLabel.Position = UDim2.new(0, 8, 0, 0)
+        OptionLabel.Size = UDim2.new(1, -8, 1, 0)
+        OptionLabel.ZIndex = 11
+        OptionLabel.Parent = OptionButton
+        
+        OptionButton.MouseEnter:Connect(function()
+            CreateTween(OptionButton, {BackgroundTransparency = 0.9})
+            CreateTween(OptionLabel, {TextColor3 = Theme.TextPrimary})
+        end)
+        
+        OptionButton.MouseLeave:Connect(function()
+            CreateTween(OptionButton, {BackgroundTransparency = 1})
+            CreateTween(OptionLabel, {TextColor3 = Theme.TextSecondary})
+        end)
+        
+        OptionButton.MouseButton1Click:Connect(function()
+            dropdown.Value = option
+            dropdown.CurrentLabel.Text = option
+            dropdown.OptionsFrame.Visible = false
+            dropdown.Arrow.Text = "▼"
+            dropdown.Open = false
+            dropdown.Callback(option)
+        end)
+    end
+    
+    -- Toggle dropdown
+    dropdown.Button.MouseButton1Click:Connect(function()
+        dropdown.Open = not dropdown.Open
+        dropdown.OptionsFrame.Visible = dropdown.Open
+        dropdown.Arrow.Text = dropdown.Open and "▲" or "▼"
+    end)
+    
+    section.YOffset = section.YOffset + 25
+    self:UpdateCanvasSize()
+    
+    return dropdown
+end
+
+-- Add Input Field
+function EonUI:AddInput(section, name, placeholder, callback)
+    local input = {}
+    input.Value = ""
+    input.Callback = callback or function() end
+    
+    -- Container
+    input.Container = Instance.new("Frame")
+    input.Container.Size = UDim2.new(1, 0, 0, 20)
+    input.Container.Position = UDim2.new(0, 0, 0, section.YOffset)
+    input.Container.BackgroundTransparency = 1
+    input.Container.Parent = section.Frame
+    
+    -- Label
+    input.Label = Instance.new("TextLabel")
+    input.Label.Text = name
+    input.Label.Font = Enum.Font.SourceSans
+    input.Label.TextColor3 = Theme.TextSecondary
+    input.Label.TextSize = 14
+    input.Label.TextXAlignment = Enum.TextXAlignment.Left
+    input.Label.BackgroundTransparency = 1
+    input.Label.Position = UDim2.new(0, 5, 0, 0)
+    input.Label.Size = UDim2.new(0.4, 0, 1, 0)
+    input.Label.Parent = input.Container
+    
+    -- Input Box
+    input.Box = Instance.new("TextBox")
+    input.Box.Size = UDim2.new(0.55, -5, 1, 0)
+    input.Box.Position = UDim2.new(0.45, 0, 0, 0)
+    input.Box.BackgroundColor3 = Theme.ElementBackground
+    input.Box.BorderSizePixel = 0
+    input.Box.Font = Enum.Font.SourceSans
+    input.Box.TextColor3 = Theme.TextPrimary
+    input.Box.PlaceholderText = placeholder or ""
+    input.Box.PlaceholderColor3 = Theme.TextDisabled
+    input.Box.TextSize = 13
+    input.Box.TextXAlignment = Enum.TextXAlignment.Left
+    input.Box.ClearTextOnFocus = false
+    input.Box.Parent = input.Container
+    
+    local BoxBorder = Instance.new("UIStroke")
+    BoxBorder.Color = Theme.ElementBorder
+    BoxBorder.Thickness = 1
+    BoxBorder.Parent = input.Box
+    
+    -- Padding
+    local Padding = Instance.new("UIPadding")
+    Padding.PaddingLeft = UDim.new(0, 8)
+    Padding.Parent = input.Box
+    
+    input.Box.FocusLost:Connect(function()
+        input.Value = input.Box.Text
+        input.Callback(input.Value)
+    end)
+    
+    section.YOffset = section.YOffset + 25
+    self:UpdateCanvasSize()
+    
+    return input
+end
+
+-- Add Keybind
+function EonUI:AddKeybind(section, name, default, callback)
+    local keybind = {}
+    keybind.Value = default or Enum.KeyCode.Unknown
+    keybind.Callback = callback or function() end
+    keybind.Listening = false
+    
+    -- Container
+    keybind.Container = Instance.new("Frame")
+    keybind.Container.Size = UDim2.new(1, 0, 0, 20)
+    keybind.Container.Position = UDim2.new(0, 0, 0, section.YOffset)
+    keybind.Container.BackgroundTransparency = 1
+    keybind.Container.Parent = section.Frame
+    
+    -- Label
+    keybind.Label = Instance.new("TextLabel")
+    keybind.Label.Text = name
+    keybind.Label.Font = Enum.Font.SourceSans
+    keybind.Label.TextColor3 = Theme.TextSecondary
+    keybind.Label.TextSize = 14
+    keybind.Label.TextXAlignment = Enum.TextXAlignment.Left
+    keybind.Label.BackgroundTransparency = 1
+    keybind.Label.Position = UDim2.new(0, 5, 0, 0)
+    keybind.Label.Size = UDim2.new(0.6, 0, 1, 0)
+    keybind.Label.Parent = keybind.Container
+    
+    -- Keybind Button
+    keybind.Button = Instance.new("TextButton")
+    keybind.Button.Size = UDim2.new(0, 80, 1, 0)
+    keybind.Button.Position = UDim2.new(1, -85, 0, 0)
+    keybind.Button.BackgroundColor3 = Theme.ElementBackground
+    keybind.Button.BorderSizePixel = 0
+    keybind.Button.Font = Enum.Font.SourceSans
+    keybind.Button.Text = keybind.Value == Enum.KeyCode.Unknown and "none" or keybind.Value.Name
+    keybind.Button.TextColor3 = keybind.Value == Enum.KeyCode.Unknown and Theme.TextDisabled or Theme.TextPrimary
+    keybind.Button.TextSize = 13
+    keybind.Button.Parent = keybind.Container
+    
+    local ButtonBorder = Instance.new("UIStroke")
+    ButtonBorder.Color = Theme.ElementBorder
+    ButtonBorder.Thickness = 1
+    ButtonBorder.Parent = keybind.Button
+    
+    keybind.Button.MouseButton1Click:Connect(function()
+        keybind.Listening = true
+        keybind.Button.Text = "..."
+        keybind.Button.TextColor3 = Theme.Accent
+    end)
+    
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if keybind.Listening and not gameProcessed then
+            if input.KeyCode ~= Enum.KeyCode.Unknown then
+                keybind.Value = input.KeyCode
+                keybind.Button.Text = input.KeyCode.Name
+                keybind.Button.TextColor3 = Theme.TextPrimary
+                keybind.Listening = false
+                keybind.Callback(input.KeyCode)
+            elseif input.UserInputType == Enum.UserInputType.MouseButton1 or 
+                   input.UserInputType == Enum.UserInputType.MouseButton2 or
+                   input.UserInputType == Enum.UserInputType.MouseButton3 then
+                local buttonName = input.UserInputType.Name:gsub("MouseButton", "Mouse")
+                keybind.Value = input.UserInputType
+                keybind.Button.Text = buttonName
+                keybind.Button.TextColor3 = Theme.TextPrimary
+                keybind.Listening = false
+                keybind.Callback(input.UserInputType)
+            end
+        elseif not gameProcessed and (input.KeyCode == keybind.Value or input.UserInputType == keybind.Value) then
+            -- Trigger keybind action
+            keybind.Callback(keybind.Value, true)
+        end
+    end)
+    
+    section.YOffset = section.YOffset + 25
+    self:UpdateCanvasSize()
+    
+    return keybind
+end
+
+-- Add Button
+function EonUI:AddButton(section, name, callback)
+    local button = {}
+    button.Callback = callback or function() end
+    
+    -- Button
+    button.Button = Instance.new("TextButton")
+    button.Button.Size = UDim2.new(1, -10, 0, 25)
+    button.Button.Position = UDim2.new(0, 5, 0, section.YOffset)
+    button.Button.BackgroundColor3 = Theme.ElementBackground
+    button.Button.BorderSizePixel = 0
+    button.Button.Font = Enum.Font.SourceSans
+    button.Button.Text = name
+    button.Button.TextColor3 = Theme.TextPrimary
+    button.Button.TextSize = 14
+    button.Button.Parent = section.Frame
+    
+    local ButtonBorder = Instance.new("UIStroke")
+    ButtonBorder.Color = Theme.ElementBorder
+    ButtonBorder.Thickness = 1
+    ButtonBorder.Parent = button.Button
+    
+    AddHoverEffect(button.Button, Theme.ElementBackground, Theme.Tertiary)
+    
+    button.Button.MouseButton1Click:Connect(function()
+        button.Callback()
+    end)
+    
+    section.YOffset = section.YOffset + 30
+    self:UpdateCanvasSize()
+    
+    return button
+end
+
+-- Add Color Picker
+function EonUI:AddColorPicker(section, name, default, callback)
+    local colorpicker = {}
+    colorpicker.Value = default or Color3.fromRGB(255, 255, 255)
+    colorpicker.Callback = callback or function() end
+    colorpicker.Open = false
+    
+    -- Container
+    colorpicker.Container = Instance.new("Frame")
+    colorpicker.Container.Size = UDim2.new(1, 0, 0, 20)
+    colorpicker.Container.Position = UDim2.new(0, 0, 0, section.YOffset)
+    colorpicker.Container.BackgroundTransparency = 1
+    colorpicker.Container.Parent = section.Frame
+    
+    -- Label
+    colorpicker.Label = Instance.new("TextLabel")
+    colorpicker.Label.Text = name
+    colorpicker.Label.Font = Enum.Font.SourceSans
+    colorpicker.Label.TextColor3 = Theme.TextSecondary
+    colorpicker.Label.TextSize = 14
+    colorpicker.Label.TextXAlignment = Enum.TextXAlignment.Left
+    colorpicker.Label.BackgroundTransparency = 1
+    colorpicker.Label.Position = UDim2.new(0, 5, 0, 0)
+    colorpicker.Label.Size = UDim2.new(0.7, 0, 1, 0)
+    colorpicker.Label.Parent = colorpicker.Container
+    
+    -- Color Display
+    colorpicker.Display = Instance.new("TextButton")
+    colorpicker.Display.Size = UDim2.new(0, 50, 1, 0)
+    colorpicker.Display.Position = UDim2.new(1, -55, 0, 0)
+    colorpicker.Display.BackgroundColor3 = colorpicker.Value
+    colorpicker.Display.BorderSizePixel = 0
+    colorpicker.Display.Text = ""
+    colorpicker.Display.Parent = colorpicker.Container
+    
+    local DisplayBorder = Instance.new("UIStroke")
+    DisplayBorder.Color = Theme.ElementBorder
+    DisplayBorder.Thickness = 1
+    DisplayBorder.Parent = colorpicker.Display
+    
+    -- Color Picker Window
+    colorpicker.Window = Instance.new("Frame")
+    colorpicker.Window.Size = UDim2.new(0, 200, 0, 170)
+    colorpicker.Window.Position = UDim2.new(1, -205, 1, 5)
+    colorpicker.Window.BackgroundColor3 = Theme.Secondary
+    colorpicker.Window.BorderSizePixel = 0
+    colorpicker.Window.Visible = false
+    colorpicker.Window.ZIndex = 20
+    colorpicker.Window.Parent = colorpicker.Container
+    
+    local WindowBorder = Instance.new("UIStroke")
+    WindowBorder.Color = Theme.Border
+    WindowBorder.Thickness = 1
+    WindowBorder.Parent = colorpicker.Window
+    
+    -- Saturation/Value Picker
+    colorpicker.SVPicker = Instance.new("ImageLabel")
+    colorpicker.SVPicker.Size = UDim2.new(0, 150, 0, 150)
+    colorpicker.SVPicker.Position = UDim2.new(0, 10, 0, 10)
+    colorpicker.SVPicker.BorderSizePixel = 0
+    colorpicker.SVPicker.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+    colorpicker.SVPicker.Parent = colorpicker.Window
+    
+    -- Hue Picker
+    colorpicker.HuePicker = Instance.new("ImageLabel")
+    colorpicker.HuePicker.Size = UDim2.new(0, 20, 0, 150)
+    colorpicker.HuePicker.Position = UDim2.new(0, 170, 0, 10)
+    colorpicker.HuePicker.BorderSizePixel = 0
+    colorpicker.HuePicker.Parent = colorpicker.Window
+    
+    -- Create gradient for hue
+    local HueGradient = Instance.new("UIGradient")
+    HueGradient.Rotation = 90
+    HueGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+        ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 255, 0)),
+        ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 255, 0)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 255)),
+        ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0, 0, 255)),
+        ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 0, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
+    }
+    HueGradient.Parent = colorpicker.HuePicker
+    
+    colorpicker.Display.MouseButton1Click:Connect(function()
+        colorpicker.Open = not colorpicker.Open
+        colorpicker.Window.Visible = colorpicker.Open
+    end)
+    
+    section.YOffset = section.YOffset + 25
+    self:UpdateCanvasSize()
+    
+    return colorpicker
+end
+
+-- Update Canvas Size
+function EonUI:UpdateCanvasSize()
+    local totalHeight = 0
+    for _, section in ipairs(self.Sections) do
+        section.Frame.Position = UDim2.new(0, 5, 0, totalHeight)
+        section.Frame.Size = UDim2.new(1, -10, 0, section.YOffset)
+        totalHeight = totalHeight + section.YOffset + 10
+    end
+    self.ContentFrame.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
+end
+
+-- Show/Hide UI
+function EonUI:Show()
+    self.ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+end
+
+function EonUI:Hide()
+    self.ScreenGui.Parent = nil
+end
+
+function EonUI:Toggle()
+    if self.ScreenGui.Parent then
+        self:Hide()
+    else
+        self:Show()
+    end
+end
+
+function EonUI:Destroy()
+    self.ScreenGui:Destroy()
+end
+
+return EonUI
